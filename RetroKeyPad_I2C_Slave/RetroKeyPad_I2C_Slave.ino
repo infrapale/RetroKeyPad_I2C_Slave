@@ -12,12 +12,28 @@
 #define NBR_ROWS  5
 #define NBR_COLS  5
 
+#include <TaHa.h>
+
 const uint8_t ROW_PIN[NBR_ROWS] = {ROW0_PIN, ROW1_PIN, ROW2_PIN, ROW3_PIN, ROW4_PIN };  
 const uint8_t COL_PIN[NBR_COLS] = {COL0_PIN, COL1_PIN, COL2_PIN, COL3_PIN, COL4_PIN };
 
-static uint8_t key_matrix[NBR_ROWS][NBR_COLS]; 
+enum key_states {
+  KEY_IDLE,
+  KEY_PRESSED,
+  KEY_PRESSED_DEBOUNCED,
+  KEY_RELEASED,
+  KEY_READY
+};
 
-void RawScan(void){
+TaHa scan_keypad_handle;
+boolean Debug = true;
+static uint8_t key_matrix[NBR_ROWS][NBR_COLS]; 
+static uint8_t key_state[NBR_ROWS][NBR_COLS]; 
+static uint8_t key_debounce[NBR_ROWS][NBR_COLS]; 
+
+
+
+void ScanKeypad(void){
     uint8_t row;
     uint8_t col;
     char    key_char;
@@ -30,12 +46,20 @@ void RawScan(void){
             
         for (col = 0; col < NBR_COLS; col++) {
             if (digitalRead(COL_PIN[col]) == HIGH) {
-                Serial.print("Row: ");
-                Serial.print(row);
-                Serial.print(" Col: ");
-                Serial.print(col);
-                Serial.print (" Key: ");
-                Serial.println(key_matrix[row][col]);
+                if (Debug) {
+                    Serial.print("Row: ");
+                    Serial.print(row);
+                    Serial.print(" Col: ");
+                    Serial.print(col);
+                    Serial.print (" Key: ");
+                    Serial.println(key_matrix[row][col]);
+                }
+            }
+            else {
+                switch (key_state) {
+                  case key_states.KEY_IDLE:
+                      break;
+                }
             }
         }
          digitalWrite(ROW_PIN[row], LOW);
@@ -66,13 +90,14 @@ void setup() {
             key_char++;
         }
     }  
-    
+    scan_keypad_handle.set_interval(10,RUN_RECURRING, ScanKeypad);
 
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
-  RawScan();
+  scan_keypad_handle.run();
+  // RawScan();
   //digitalWrite(ROW_PIN[0], HIGH);
   delay(100);
 }
