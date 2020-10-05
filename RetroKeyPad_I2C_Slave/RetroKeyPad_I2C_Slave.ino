@@ -1,3 +1,19 @@
+/**
+ ******************************************************************************
+ * @file    
+ * @author  Tom Hoglund  infrapale@gmail.com
+ *
+ * @brief   
+ ******************************************************************************
+ * @attention
+ * 
+ ******************************************************************************
+ */
+
+
+#include <Wire.h>
+#include <TaHa.h>
+
 
 #define ROW0_PIN  10
 #define ROW1_PIN  11
@@ -14,8 +30,13 @@
 #define KEY_BUF_LEN  8
 #define KEY_BUF_MASK 0x07
 
+#define RKP_I2C_ADDR             0x18
+#define RKP_REQ_KEY_AVAIL        0x04
+#define RKP_REQ_GET_KEY          0x05
+#define RKP_EVENT_SET_KEY_VECTOR 0x06
 
-#include <TaHa.h>
+
+
 
 const uint8_t ROW_PIN[NBR_ROWS] = {ROW0_PIN, ROW1_PIN, ROW2_PIN, ROW3_PIN, ROW4_PIN };  
 const uint8_t COL_PIN[NBR_COLS] = {COL0_PIN, COL1_PIN, COL2_PIN, COL3_PIN, COL4_PIN };
@@ -39,10 +60,19 @@ static char    key_buf[KEY_BUF_LEN];
 static uint8_t key_wr_indx;
 static uint8_t key_rd_indx;
 
+static uint8_t reg_addr;
+
 uint32_t  millis1;
 uint32_t  millis2;
 
 
+/**
+ * @brief  
+ * @param  
+ * @param  
+ * @param  
+ * @retval 
+ */
 void ScanKeypad(void){
     uint8_t row;
     uint8_t col;
@@ -115,6 +145,13 @@ void ScanKeypad(void){
 }
 
 
+/**
+ * @brief  
+ * @param  
+ * @param  
+ * @param  
+ * @retval 
+ */
 void PrintKey(void){
     if (key_buf[key_rd_indx] != 0x00) {
         Serial.print (" Key from buffer: ");
@@ -131,6 +168,13 @@ void setup() {
     uint8_t row;
     uint8_t col;
     char    key_char;
+    uint8_t   *key_vector;
+
+    Wire.begin(RKP_I2C_ADDR);                 // join i2c bus with address 
+    Wire.onRequest(RequestEvent); // register event
+    Wire.onReceive(ReceiveEvent);  // register event    HAL_UART_Transmit(&huart3, (uint8_t*)linefeed, strlen(linefeed),HAL_MAX_DELAY);
+
+
 
     // wdt_disable();  /* Disable the watchdog and wait for more than 2 seconds */
     delay(2000);
@@ -158,6 +202,12 @@ void setup() {
     key_wr_indx = 0;
     key_rd_indx = 0;
 
+    key_vector = &key_matrix[0][0];
+    *key_vector++ = '@';
+    *key_vector++ = '#';
+    key_vector = key_vector +3;
+    *key_vector++ = '%';
+    *key_vector++ = '?';
     scan_keypad_handle.set_interval(10,RUN_RECURRING, ScanKeypad);
     print_key_handle.set_interval(50,RUN_RECURRING, PrintKey);
 
@@ -169,4 +219,60 @@ void loop() {
   print_key_handle.run();
   // RawScan();
   //digitalWrite(ROW_PIN[0], HIGH);
-  }
+}
+
+/**
+ * @brief  
+ * @param  
+ * @param  
+ * @param  
+ * @retval 
+ */
+
+void ReceiveEvent(int howMany)
+{ 
+    uint8_t  cmd;
+    uint8_t  *key_vector;
+    uint8_t  data;
+    
+    reg_addr = Wire.read();   // receive byte as a character 
+    switch(reg_addr){
+        case RKP_EVENT_SET_KEY_VECTOR:
+            key_vector = &key_matrix[0][0];
+            while(Wire.available())  
+            {
+                data = Wire.read();   
+                *key_vector++ = data;
+            }
+            break;
+        default: 
+            while(Wire.available())  
+            {
+                data = Wire.read(); 
+            }
+            break;
+    }
+}
+
+/**
+ * @brief  
+ * @param  
+ * @param  
+ * @param  
+ * @retval 
+ */
+void RequestEvent()
+{
+   static char c = '0';
+   Serial.println("request event");
+   switch (reg_addr)
+   {
+      case RKP_REQ_KEY_AVAIL:
+          Wire.write('4');
+          break;
+      case RKP_REQ_GET_KEY:
+          Wire.write('1');
+          break;
+   }
+}
+  
