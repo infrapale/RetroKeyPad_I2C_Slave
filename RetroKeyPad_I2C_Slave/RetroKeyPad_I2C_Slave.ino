@@ -59,7 +59,7 @@ static uint8_t key_debounce[NBR_ROWS][NBR_COLS];
 static char    key_buf[KEY_BUF_LEN];
 static uint8_t key_wr_indx;
 static uint8_t key_rd_indx;
-
+static uint8_t key_matrix_indx
 static uint8_t reg_addr;
 
 uint32_t  millis1;
@@ -172,7 +172,7 @@ void setup() {
 
     Wire.begin(RKP_I2C_ADDR);                 // join i2c bus with address 
     Wire.onRequest(RequestEvent); // register event
-    Wire.onReceive(ReceiveEvent);  // register event    HAL_UART_Transmit(&huart3, (uint8_t*)linefeed, strlen(linefeed),HAL_MAX_DELAY);
+    Wire.onReceive(ReceiveEvent);  // register event    
 
 
 
@@ -216,7 +216,7 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
   scan_keypad_handle.run();
-  print_key_handle.run();
+  // print_key_handle.run();
   // RawScan();
   //digitalWrite(ROW_PIN[0], HIGH);
 }
@@ -229,12 +229,13 @@ void loop() {
  * @retval 
  */
 
-void ReceiveEvent(int howMany)
+void xReceiveEvent(int howMany)
 { 
     uint8_t  cmd;
     uint8_t  *key_vector;
     uint8_t  data;
     
+   Serial.println("receive event");
     reg_addr = Wire.read();   // receive byte as a character 
     switch(reg_addr){
         case RKP_EVENT_SET_KEY_VECTOR:
@@ -254,6 +255,20 @@ void ReceiveEvent(int howMany)
     }
 }
 
+void ReceiveEvent(int howMany)
+{ 
+    uint8_t x  
+
+    while (1 < Wire.available){
+      x = Wire.read(); // read one character from the I2C
+    }
+
+
+  Wire.endTransmission(); // stop transmitting
+
+}
+
+
 /**
  * @brief  
  * @param  
@@ -264,15 +279,28 @@ void ReceiveEvent(int howMany)
 void RequestEvent()
 {
    static char c = '0';
-   Serial.println("request event");
+   'Serial.println("request event");
+   if (key_buf[key_rd_indx] != 0x00) {
+       Serial.print (" Key from buffer: ");
+       Serial.println(key_buf[key_rd_indx]);
+       Wire.write(key_buf[key_rd_indx]);
+       key_buf[key_rd_indx] = 0x00;
+       key_rd_indx = ++key_rd_indx & KEY_BUF_MASK;
+    } 
+    else{
+        Wire.write(0);
+    } 
+
+   /*
    switch (reg_addr)
    {
       case RKP_REQ_KEY_AVAIL:
-          Wire.write('4');
+          Wire.write("Z");
           break;
       case RKP_REQ_GET_KEY:
-          Wire.write('1');
+          Wire.write("4");
           break;
    }
+   */
 }
   
