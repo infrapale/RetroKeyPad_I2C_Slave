@@ -27,13 +27,15 @@
 #define COL4_PIN  2
 #define NBR_ROWS  5
 #define NBR_COLS  5
+#define NBR_KEYS  NBR_ROWS * NBR_COLS
+
 #define KEY_BUF_LEN  8
 #define KEY_BUF_MASK 0x07
 
 #define RKP_I2C_ADDR             0x18
 #define RKP_REQ_KEY_AVAIL        0x04
 #define RKP_REQ_GET_KEY          0x05
-#define RKP_EVENT_SET_KEY_VECTOR 0x06
+#define RKP_EVENT_SET_KEY_VECTOR 0x10
 
 
 
@@ -59,7 +61,7 @@ static uint8_t key_debounce[NBR_ROWS][NBR_COLS];
 static char    key_buf[KEY_BUF_LEN];
 static uint8_t key_wr_indx;
 static uint8_t key_rd_indx;
-static uint8_t key_matrix_indx
+static uint8_t key_matrix_indx;
 static uint8_t reg_addr;
 
 uint32_t  millis1;
@@ -142,6 +144,7 @@ void ScanKeypad(void){
     }  
     //millis2 = millis;
     //Serial.println(millis2-millis1); 
+    //Serial.print('.');
 }
 
 
@@ -170,17 +173,19 @@ void setup() {
     char    key_char;
     uint8_t   *key_vector;
 
-    Wire.begin(RKP_I2C_ADDR);                 // join i2c bus with address 
-    Wire.onRequest(RequestEvent); // register event
-    Wire.onReceive(ReceiveEvent);  // register event    
-
-
-
     // wdt_disable();  /* Disable the watchdog and wait for more than 2 seconds */
     delay(2000);
     while (!Serial); // wait until serial console is open, remove if not tethered to computer
     Serial.begin(9600);
     Serial.println("RetroKeyPad_I2C_Slave Tom Höglund 2020");
+
+    
+    Wire.begin(RKP_I2C_ADDR);      // join i2c bus with address 
+    Wire.onRequest(RequestEvent);  // register event
+    Wire.onReceive(ReceiveEvent);  // register event    
+
+
+
     for (row = 0; row < NBR_ROWS; row++) {
         pinMode(ROW_PIN[row], OUTPUT);
     }
@@ -203,11 +208,11 @@ void setup() {
     key_rd_indx = 0;
 
     key_vector = &key_matrix[0][0];
-    *key_vector++ = '@';
-    *key_vector++ = '#';
-    key_vector = key_vector +3;
-    *key_vector++ = '%';
-    *key_vector++ = '?';
+    //*key_vector++ = '@';
+    //*key_vector++ = '#';
+    //key_vector = key_vector +3;
+    //*key_vector++ = '%';
+    //*key_vector++ = '?';
     scan_keypad_handle.set_interval(10,RUN_RECURRING, ScanKeypad);
     print_key_handle.set_interval(50,RUN_RECURRING, PrintKey);
 
@@ -257,15 +262,28 @@ void xReceiveEvent(int howMany)
 
 void ReceiveEvent(int howMany)
 { 
-    uint8_t x  
+    uint8_t event_state;
+    uint8_t reg;
+    uint8_t idx;
+    uint8_t x; 
+    uint8_t *ptr;
 
-    while (1 < Wire.available){
-      x = Wire.read(); // read one character from the I2C
+    Serial.println("receive event");
+    event_state = 0; 
+    idx = 0;
+    ptr = &key_matrix[0][0]; 
+    reg = Wire.read();
+    switch (reg){
+        case RKP_EVENT_SET_KEY_VECTOR:
+            while (0 < Wire.available() && idx < NBR_KEYS){
+                x = Wire.read(); // read one character from the I2C
+                Serial.print(x);
+                ptr = &key_matrix[0][0] + idx++;
+                *ptr = x;
+            }  
+            break;         
     }
-
-
-  Wire.endTransmission(); // stop transmitting
-
+ 
 }
 
 
@@ -279,7 +297,7 @@ void ReceiveEvent(int howMany)
 void RequestEvent()
 {
    static char c = '0';
-   'Serial.println("request event");
+   //Serial.println("request event");
    if (key_buf[key_rd_indx] != 0x00) {
        Serial.print (" Key from buffer: ");
        Serial.println(key_buf[key_rd_indx]);
@@ -290,6 +308,7 @@ void RequestEvent()
     else{
         Wire.write(0);
     } 
+    //Wire.endTransmission(); // stop transmitting
 
    /*
    switch (reg_addr)
