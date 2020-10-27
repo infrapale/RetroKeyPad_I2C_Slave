@@ -58,7 +58,9 @@ boolean Debug = true;
 static uint8_t key_matrix[NBR_ROWS][NBR_COLS]; 
 static uint8_t key_state[NBR_ROWS][NBR_COLS]; 
 static uint8_t key_debounce[NBR_ROWS][NBR_COLS]; 
+static uint8_t key_duration[NBR_ROWS][NBR_COLS]; 
 static char    key_buf[KEY_BUF_LEN];
+static uint8_t key_func_buf[KEY_BUF_LEN];
 static uint8_t key_wr_indx;
 static uint8_t key_rd_indx;
 static uint8_t key_matrix_indx;
@@ -91,23 +93,21 @@ void ScanKeypad(void){
         for (col = 0; col < NBR_COLS; col++) {
             if (digitalRead(COL_PIN[col]) == HIGH) {
                 if (Debug) {
-                    //Serial.print("Row: ");
-                    //Serial.print(row);
-                    //Serial.print(" Col: ");
-                    //Serial.print(col);
-                    //Serial.print (" Key: ");
-                    //Serial.print(key_matrix[row][col]);
-                    //Serial.print (" Key State: ");
-                    //Serial.println(key_state[row][col]);
+                    //Serial.print("Row: "); Serial.print(row);
+                    //Serial.print(" Col: "); Serial.print(col);
+                    //Serial.print (" Key: "); Serial.print(key_matrix[row][col]);
+                    //Serial.print (" Key State: "); Serial.println(key_state[row][col]);
                 }
                 switch (key_state[row][col]) {
                     case KEY_STATE_IDLE:
                         key_state[row][col] = KEY_STATE_PRESSED;
                         key_debounce[row][col] = 2;
+                        key_duration[row][col] = 0;
                         break;
                     case KEY_STATE_PRESSED:
                         if (key_debounce[row][col] > 0 ) {  
                             key_debounce[row][col]--;
+                            key_duration[row][col]++;
                         }
                         else {
                             key_state[row][col] = KEY_STATE_PRESSED_DEBOUNCED;
@@ -116,6 +116,7 @@ void ScanKeypad(void){
                     
                         break;
                     case KEY_STATE_PRESSED_DEBOUNCED:
+                        key_duration[row][col]++;
                         break;
                     case KEY_STATE_RELEASED:
                         break;
@@ -132,7 +133,21 @@ void ScanKeypad(void){
                         break;
                     case KEY_STATE_PRESSED_DEBOUNCED:
                         key_state[row][col] = KEY_STATE_IDLE;
+                        
                         key_buf[key_wr_indx] = key_matrix[row][col];
+                        if (key_duration[row][col] < 50) {
+                            key_func_buf[key_wr_indx] = 1;
+                        } else {
+                            if (key_duration[row][col] < 100) {
+                                key_func_buf[key_wr_indx] = 2;
+                            } 
+                            else 
+                            {
+                                key_func_buf[key_wr_indx] = 3;
+                            } 
+                        }
+                        
+                        // key_func_buf[key_wr_indx] = key_duration[row][col] ;
                         // Serial.print (" Key pressed: ");
                         // Serial.println(key_matrix[row][col]);
                         key_wr_indx = ++key_wr_indx & KEY_BUF_MASK;
@@ -158,7 +173,9 @@ void ScanKeypad(void){
 void PrintKey(void){
     if (key_buf[key_rd_indx] != 0x00) {
         Serial.print (" Key from buffer: ");
-        Serial.println(key_buf[key_rd_indx]);
+        Serial.print(key_buf[key_rd_indx]);
+        Serial.print (" func =  ");
+        Serial.println(key_func_buf[key_rd_indx]);
         key_buf[key_rd_indx] = 0x00;
         key_rd_indx = ++key_rd_indx & KEY_BUF_MASK;
     }  
@@ -171,7 +188,7 @@ void setup() {
     uint8_t row;
     uint8_t col;
     char    key_char;
-    uint8_t   *key_vector;
+    uint8_t *key_vector;
 
     // wdt_disable();  /* Disable the watchdog and wait for more than 2 seconds */
     delay(2000);
@@ -221,7 +238,7 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
   scan_keypad_handle.run();
-  // print_key_handle.run();
+  print_key_handle.run();
   // RawScan();
   //digitalWrite(ROW_PIN[0], HIGH);
 }
