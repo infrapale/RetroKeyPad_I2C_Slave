@@ -60,7 +60,7 @@ static uint8_t key_state[NBR_ROWS][NBR_COLS];
 static uint8_t key_debounce[NBR_ROWS][NBR_COLS]; 
 static uint8_t key_duration[NBR_ROWS][NBR_COLS]; 
 static char    key_buf[KEY_BUF_LEN];
-static uint8_t key_func_buf[KEY_BUF_LEN];
+static char    key_func_buf[KEY_BUF_LEN];
 static uint8_t key_wr_indx;
 static uint8_t key_rd_indx;
 static uint8_t key_matrix_indx;
@@ -136,14 +136,14 @@ void ScanKeypad(void){
                         
                         key_buf[key_wr_indx] = key_matrix[row][col];
                         if (key_duration[row][col] < 50) {
-                            key_func_buf[key_wr_indx] = 1;
+                            key_func_buf[key_wr_indx] = '1';
                         } else {
                             if (key_duration[row][col] < 100) {
-                                key_func_buf[key_wr_indx] = 2;
+                                key_func_buf[key_wr_indx] = '2';
                             } 
                             else 
                             {
-                                key_func_buf[key_wr_indx] = 3;
+                                key_func_buf[key_wr_indx] = '3';
                             } 
                         }
                         
@@ -225,11 +225,6 @@ void setup() {
     key_rd_indx = 0;
 
     key_vector = &key_matrix[0][0];
-    //*key_vector++ = '@';
-    //*key_vector++ = '#';
-    //key_vector = key_vector +3;
-    //*key_vector++ = '%';
-    //*key_vector++ = '?';
     scan_keypad_handle.set_interval(10,RUN_RECURRING, ScanKeypad);
     print_key_handle.set_interval(50,RUN_RECURRING, PrintKey);
 
@@ -238,7 +233,7 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
   scan_keypad_handle.run();
-  print_key_handle.run();
+  //print_key_handle.run();
   // RawScan();
   //digitalWrite(ROW_PIN[0], HIGH);
 }
@@ -251,31 +246,6 @@ void loop() {
  * @retval 
  */
 
-void xReceiveEvent(int howMany)
-{ 
-    uint8_t  cmd;
-    uint8_t  *key_vector;
-    uint8_t  data;
-    
-   Serial.println("receive event");
-    reg_addr = Wire.read();   // receive byte as a character 
-    switch(reg_addr){
-        case RKP_EVENT_SET_KEY_VECTOR:
-            key_vector = &key_matrix[0][0];
-            while(Wire.available())  
-            {
-                data = Wire.read();   
-                *key_vector++ = data;
-            }
-            break;
-        default: 
-            while(Wire.available())  
-            {
-                data = Wire.read(); 
-            }
-            break;
-    }
-}
 
 void ReceiveEvent(int howMany)
 { 
@@ -285,7 +255,7 @@ void ReceiveEvent(int howMany)
     uint8_t x; 
     uint8_t *ptr;
 
-    Serial.println("receive event");
+    // Serial.println("receive event");
     event_state = 0; 
     idx = 0;
     ptr = &key_matrix[0][0]; 
@@ -314,29 +284,26 @@ void ReceiveEvent(int howMany)
 void RequestEvent()
 {
    static char c = '0';
+   uint8_t buf[2];
    //Serial.println("request event");
    if (key_buf[key_rd_indx] != 0x00) {
        Serial.print (" Key from buffer: ");
-       Serial.println(key_buf[key_rd_indx]);
-       Wire.write(key_buf[key_rd_indx]);
+       Serial.print(key_buf[key_rd_indx]);
+       Serial.print(" ");
+       Serial.println(key_func_buf[key_rd_indx]);
+       buf[0] = key_buf[key_rd_indx];
+       buf[1] = key_func_buf[key_rd_indx];
+       Wire.write(buf,2);
+       //Wire.write(key_buf[key_rd_indx]);
+       //Wire.write(key_func_buf[key_rd_indx]);
        key_buf[key_rd_indx] = 0x00;
+       key_func_buf[key_rd_indx] = 0x00;
+       
        key_rd_indx = ++key_rd_indx & KEY_BUF_MASK;
     } 
     else{
         Wire.write(0);
     } 
     //Wire.endTransmission(); // stop transmitting
-
-   /*
-   switch (reg_addr)
-   {
-      case RKP_REQ_KEY_AVAIL:
-          Wire.write("Z");
-          break;
-      case RKP_REQ_GET_KEY:
-          Wire.write("4");
-          break;
-   }
-   */
 }
   
