@@ -31,10 +31,11 @@
 
 #define KEY_BUF_LEN  8
 #define KEY_BUF_MASK 0x07
-
+#define I2C_EVENT_BUFF_LEN       32
 #define RKP_I2C_ADDR             0x18
 #define RKP_REQ_KEY_AVAIL        0x04
 #define RKP_REQ_GET_KEY          0x05
+#define RKP_REQ_GET_DUR          0x06
 #define RKP_EVENT_SET_KEY_VECTOR 0x10
 
 
@@ -65,17 +66,16 @@ static uint8_t key_wr_indx;
 static uint8_t key_rd_indx;
 static uint8_t key_matrix_indx;
 static uint8_t reg_addr;
+static uint8_t i2c_event_buf[I2C_EVENT_BUFF_LEN];
 
 uint32_t  millis1;
 uint32_t  millis2;
 
 
 /**
- * @brief  
- * @param  
- * @param  
- * @param  
- * @retval 
+ * @brief  Scan Keypad,run every 10ms by scheduler  
+ * @param  -
+ * @retval -
  */
 void ScanKeypad(void){
     uint8_t row;
@@ -164,11 +164,9 @@ void ScanKeypad(void){
 
 
 /**
- * @brief  
- * @param  
- * @param  
- * @param  
- * @retval 
+ * @brief  Print pressed keys, for testing run by scheduler
+ * @param  - 
+ * @retval -
  */
 void PrintKey(void){
     if (key_buf[key_rd_indx] != 0x00) {
@@ -239,63 +237,66 @@ void loop() {
 }
 
 /**
- * @brief  
- * @param  
- * @param  
- * @param  
+ * @brief  I2C Recive Event
+ * @param  howMany
+ * @param  I2C from master:key value vector 25 char values
  * @retval 
  */
 
-
 void ReceiveEvent(int howMany)
 { 
-    uint8_t event_state;
     uint8_t reg;
     uint8_t idx;
     uint8_t x; 
     uint8_t *ptr;
 
     // Serial.println("receive event");
-    event_state = 0; 
     idx = 0;
-    ptr = &key_matrix[0][0]; 
-    reg = Wire.read();
-    switch (reg){
-        case RKP_EVENT_SET_KEY_VECTOR:
-            while (0 < Wire.available() && idx < NBR_KEYS){
-                x = Wire.read(); // read one character from the I2C
-                Serial.print(x);
-                ptr = &key_matrix[0][0] + idx++;
-                *ptr = x;
-            }  
-            break;         
+    memset(i2c_event_buf,0x00,sizeof(i2c_event_buf));
+    while(1 < Wire.available()) // loop through all but the last
+    {
+        if (idx < I2C_EVENT_BUFF_LEN ) {
+            i2c_event_buf[idx++] = Wire.read();  
+        } else {
+          break;
+        }
     }
+    switch (i2c_event_buf[0]) {
+    case RKP_EVENT_SET_KEY_VECTOR:
+        if (idx > NBR_KEYS) idx = NBR_KEYS;
+        memcpy(key_matrix, &i2c_event_buf[1],idx);
+        break;
+    }
+
  
 }
 
 
 /**
- * @brief  
- * @param  
- * @param  
- * @param  
- * @retval 
+ * @brief  I2C Request Event
+ * @param  I2C Cmd: RKP_REQ_GET_KEY 
+ * @retval via I2C: [key_value, duration_index]
  */
 void RequestEvent()
 {
    static char c = '0';
+   uint8_t cmd; 
    uint8_t buf[2];
    //Serial.println("request event");
    if (key_buf[key_rd_indx] != 0x00) {
-       Serial.print (" Key from buffer: ");
-       Serial.print(key_buf[key_rd_indx]);
-       Serial.print(" ");
-       Serial.println(key_func_buf[key_rd_indx]);
-       buf[0] = key_buf[key_rd_indx];
-       buf[1] = key_func_buf[key_rd_indx];
+       Serial.print (" Key from buffer: "); Serial.print(key_buf[key_rd_indx]);
+       Serial.print(" "); Serial.println(key_func_buf[key_rd_indx]);
+       cmd = Wire.read();  
+       switch (cmd){
+       case RKP_REQ_GET_KEY:
+           buf[0] = key_buf[key_rd_indx];
+           buf[1] = i2c_event_buf[0];
+           break;
+       default:
+           buf[0] = 0xAA;
+           buf[1] = 0x55;    
+       }
        Wire.write(buf,2);
-       //Wire.write(key_buf[key_rd_indx]);
-       //Wire.write(key_func_buf[key_rd_indx]);
        key_buf[key_rd_indx] = 0x00;
        key_func_buf[key_rd_indx] = 0x00;
        
@@ -304,6 +305,5 @@ void RequestEvent()
     else{
         Wire.write(0);
     } 
-    //Wire.endTransmission(); // stop transmitting
 }
   
