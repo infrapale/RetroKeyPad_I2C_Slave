@@ -1,11 +1,12 @@
 /**
  ******************************************************************************
- * @file    
+ * @file  https://github.com/infrapale/RetroKeyPad_I2C_Slave  
  * @author  Tom Hoglund  infrapale@gmail.com
  *
- * @brief   
+ * @brief  Arduino C codefor the I2C Keypad Controller 2020 
  ******************************************************************************
  * @attention
+ * Requires TaHa task handler (scheduler)
  * 
  ******************************************************************************
  */
@@ -13,7 +14,6 @@
 
 #include <Wire.h>
 #include <TaHa.h>
-
 
 #define ROW0_PIN  10
 #define ROW1_PIN  11
@@ -37,9 +37,6 @@
 #define RKP_REQ_GET_KEY          0x05
 #define RKP_REQ_GET_DUR          0x06
 #define RKP_EVENT_SET_KEY_VECTOR 0x10
-
-
-
 
 const uint8_t ROW_PIN[NBR_ROWS] = {ROW0_PIN, ROW1_PIN, ROW2_PIN, ROW3_PIN, ROW4_PIN };  
 const uint8_t COL_PIN[NBR_COLS] = {COL0_PIN, COL1_PIN, COL2_PIN, COL3_PIN, COL4_PIN };
@@ -68,10 +65,6 @@ static uint8_t key_matrix_indx;
 static uint8_t reg_addr;
 static uint8_t i2c_event_buf[I2C_EVENT_BUFF_LEN];
 
-uint32_t  millis1;
-uint32_t  millis2;
-
-
 /**
  * @brief  Scan Keypad,run every 10ms by scheduler  
  * @param  -
@@ -81,8 +74,6 @@ void ScanKeypad(void){
     uint8_t row;
     uint8_t col;
     char    key_char;
-
-    // millis1 = millis;
     
     for (row = 0; row < NBR_ROWS; row++) {
         digitalWrite(ROW_PIN[row], LOW);
@@ -157,9 +148,6 @@ void ScanKeypad(void){
         }
          digitalWrite(ROW_PIN[row], LOW);
     }  
-    //millis2 = millis;
-    //Serial.println(millis2-millis1); 
-    //Serial.print('.');
 }
 
 
@@ -245,12 +233,9 @@ void loop() {
 
 void ReceiveEvent(int howMany)
 { 
-    uint8_t reg;
     uint8_t idx;
-    uint8_t x; 
-    uint8_t *ptr;
-
-    // Serial.println("receive event");
+ 
+    Serial.println("receive event");
     idx = 0;
     memset(i2c_event_buf,0x00,sizeof(i2c_event_buf));
     while(1 < Wire.available()) // loop through all but the last
@@ -267,10 +252,7 @@ void ReceiveEvent(int howMany)
         memcpy(key_matrix, &i2c_event_buf[1],idx);
         break;
     }
-
- 
 }
-
 
 /**
  * @brief  I2C Request Event
@@ -303,7 +285,8 @@ void RequestEvent()
        key_rd_indx = ++key_rd_indx & KEY_BUF_MASK;
     } 
     else{
-        Wire.write(0);
+        buf[0] = 0x00; buf[1] = 0x00;
+        Wire.write(buf,2); 
     } 
 }
   
